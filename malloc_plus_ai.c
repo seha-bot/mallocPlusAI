@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <curl/curl.h>
+#include <json-c/json.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -144,18 +145,50 @@ void *mallocPlusAI(const char *prompt) {
   if (sb.len == BUFFER_SIZE) {
     goto data_cleanup;
   }
-
   sb.buf[sb.len++] = '\0';
-  int byte_cnt = atoi(sb.buf);
+
+  json_object *jso_root = json_tokener_parse(sb.buf);
+  if (!jso_root) {
+    goto data_cleanup;
+  }
+
+  json_object *jso_choices;
+  if (!json_object_object_get_ex(jso_root, "choices", &jso_choices)) {
+    goto json_cleanup;
+  }
+
+  if (json_object_get_type(jso_choices) != json_type_array) {
+    goto json_cleanup;
+  }
+
+  json_object *jso_choice = json_object_array_get_idx(jso_choices, 0);
+  if (!jso_choice) {
+    goto json_cleanup;
+  }
+
+  json_object *jso_message;
+  if (!json_object_object_get_ex(jso_choice, "message", &jso_message)) {
+    goto json_cleanup;
+  }
+
+  json_object *jso_content;
+  if (!json_object_object_get_ex(jso_message, "content", &jso_content)) {
+    goto json_cleanup;
+  }
+
+  int byte_cnt = json_object_get_int(jso_content);
   if (byte_cnt < 0) {
     goto data_cleanup;
   }
 
+  json_object_put(jso_root);
   free(data);
   curl_slist_free_all(list);
   curl_easy_cleanup(curl);
   return malloc(byte_cnt);
 
+json_cleanup:
+  json_object_put(jso_root);
 data_cleanup:
   free(data);
 list_cleanup:
