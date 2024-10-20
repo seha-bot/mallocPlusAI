@@ -51,7 +51,7 @@ static char *create_request_data(const char *prompt) {
 static int is_valid_prompt(const char *prompt) {
   const size_t len = strlen(prompt);
   for (size_t i = 0; i < len; ++i) {
-    if (!isalnum(prompt[i])) {
+    if (!isalnum(prompt[i]) && !isspace(prompt[i])) {
       return 0;
     }
   }
