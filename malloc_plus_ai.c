@@ -24,7 +24,7 @@
   "to give your response as only a whole number of bytes, do not provide any " \
   "other text. Here is what I request: "
 
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 1024
 
 struct sized_buffer {
   size_t len;
@@ -33,15 +33,14 @@ struct sized_buffer {
 
 static char *create_request_data(const char *prompt) {
   const size_t len = strlen(prompt);
-  char *buf = malloc(sizeof(DATA_START) + sizeof(DATA_END) +
-                     sizeof(BASE_PROMPT) + len - 2);
+  char *buf =
+      malloc(sizeof(DATA_START BASE_PROMPT) + sizeof(DATA_END) + len - 1);
   if (!buf) {
     return 0;
   }
 
   char *end;
-  end = strcpy(buf, DATA_START);
-  end = strcpy(end, BASE_PROMPT);
+  end = strcpy(buf, DATA_START BASE_PROMPT);
   end = strcpy(end, prompt);
   strcpy(buf, DATA_END);
 
@@ -58,15 +57,6 @@ static int is_valid_prompt(const char *prompt) {
   return 1;
 }
 
-static int is_valid_response(struct sized_buffer *sb) {
-  for (size_t i = 0; i < sb->len; ++i) {
-    if (!isdigit(sb->buf[i])) {
-      return 0;
-    }
-  }
-  return 1;
-}
-
 static size_t write_callback(char *ptr, size_t size, size_t nmemb,
                              void *userdata) {
   struct sized_buffer *sb = userdata;
@@ -76,7 +66,7 @@ static size_t write_callback(char *ptr, size_t size, size_t nmemb,
   }
 
   for (size_t i = 0; i < nmemb; ++i) {
-    sb->buf[size++] = ptr[i];
+    sb->buf[sb->len++] = ptr[i];
   }
 
   return nmemb;
@@ -138,10 +128,6 @@ void *mallocPlusAI(const char *prompt) {
     goto data_cleanup;
   }
 
-  if (!is_valid_response(&sb)) {
-    goto data_cleanup;
-  }
-
   if (sb.len == BUFFER_SIZE) {
     goto data_cleanup;
   }
@@ -177,7 +163,7 @@ void *mallocPlusAI(const char *prompt) {
   }
 
   int byte_cnt = json_object_get_int(jso_content);
-  if (byte_cnt < 0) {
+  if (byte_cnt <= 0) {
     goto data_cleanup;
   }
 
